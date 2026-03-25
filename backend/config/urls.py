@@ -21,6 +21,9 @@ urlpatterns = [
 
     # Chat / LLM Parsing
     path("api/chat/", include("apps.chat.urls")),
+
+    # Friends
+    path("api/friends/", include("apps.friends.urls")),
 ]
 
 # Serve media files in development

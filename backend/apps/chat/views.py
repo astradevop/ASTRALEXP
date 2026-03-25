@@ -8,6 +8,8 @@ from rest_framework.views import APIView
 from apps.expenses.models import Expense
 from apps.expenses.serializers import ExpenseSerializer
 from apps.payments.models import PaymentMethod
+from apps.friends.models import Friendship
+from django.db.models import Q
 from .services import parse_expense_from_text
 
 
@@ -55,8 +57,26 @@ class ParseExpenseView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        # Fetch friends for context
+        friends = []
+        friendships = Friendship.objects.filter(
+            (Q(from_user=request.user) | Q(to_user=request.user)),
+            status='accepted'
+        ).select_related('from_user', 'to_user')
+        
+        for f in friendships:
+            if f.from_user == request.user:
+                friends.append(f.to_user)
+            else:
+                friends.append(f.from_user)
+
         # ── Call Gemini ──────────────────────────────────────────────────────
-        parsed = parse_expense_from_text(message, image_base64=image_base64, previous_state=previous_state)
+        parsed = parse_expense_from_text(
+            message, 
+            image_base64=image_base64, 
+            previous_state=previous_state, 
+            friends=friends
+        )
 
         if not parsed.get("success"):
             return Response(
@@ -105,7 +125,7 @@ def _build_follow_up(missing_fields: list) -> str | None:
 def _save_expense(user, raw_input: str, parsed: dict) -> Expense | None:
     """
     Create and save an Expense from parsed LLM data.
-    Tries to match the payment method name to an existing one for this user.
+    Uses ExpenseSerializer to handle nested splits and balance updates.
     """
     # Resolve payment method — match by name (case-insensitive)
     payment_method = None
@@ -124,13 +144,41 @@ def _save_expense(user, raw_input: str, parsed: dict) -> Expense | None:
     except (ValueError, AttributeError):
         expense_time = datetime.now(timezone.utc)
 
-    expense = Expense.objects.create(
-        user=user,
-        amount=parsed["amount"],
-        category=parsed.get("category", "other"),
-        note=parsed.get("note", ""),
-        expense_time=expense_time,
-        payment_method=payment_method,
-        raw_input=raw_input,
-    )
-    return expense
+    # Prepare data for serializer
+    splits_data = []
+    parsed_splits = parsed.get("splits", [])
+    for s in parsed_splits:
+        fid = s.get("friend_id")
+        amt = s.get("amount")
+        if fid:
+            # If AI didn't calculate amount, it will be 0 or null
+            # Note: The UI/Backend usually handles equal split if amount is missing,
+            # but for now we expect the AI to provide it.
+            splits_data.append({
+                "debtor": fid,
+                "amount": amt or 0
+            })
+
+    data = {
+        "amount": parsed["amount"],
+        "category": parsed.get("category", "other"),
+        "note": parsed.get("note", ""),
+        "expense_time": expense_time,
+        "payment_method": payment_method.id if payment_method else None,
+        "raw_input": raw_input,
+        "splits": splits_data
+    }
+
+    # We need to pass the request in context for the serializer's validate_payment_method
+    class MockRequest:
+        def __init__(self, user):
+            self.user = user
+
+    serializer = ExpenseSerializer(data=data, context={"request": MockRequest(user)})
+    if serializer.is_valid():
+        return serializer.save()
+    else:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Failed to save expense from chat: {serializer.errors}")
+        return None

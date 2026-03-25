@@ -51,10 +51,22 @@ Extract and return ONLY a valid JSON object with these fields:
   "expense_time": <ISO 8601 datetime string based on context like "yesterday", "last night", "8pm", now if not specified — or null>,
   "note": <short description of what was purchased, or null>,
   "is_complete": <true if amount, category and payment_method_name are all present; false otherwise>,
-  "missing_fields": <list of field names that are missing or unclear, e.g. ["payment_method", "category"]>
+  "missing_fields": <list of field names that are missing or unclear, e.g. ["payment_method", "category"]>,
+  "splits": [
+    {{
+      "friend_id": <id of the friend from the provided list, or null>,
+      "amount": <the amount this friend owes, or null if to be split equally>
+    }}
+  ],
+  "needs_friend_selection": <true if the user mentioned "friends" or splitting but didn't specify who from the list, or names were not found in the list>
 }}
 
+Friends list for matching: {friends_context}
+
 Rules:
+- If User says "split with [Friend Name]", find the friend in the provided list.
+- If total amount is 1000 and user says "split with Rahul", then amount should be 500 (user share) and one split for Rahul for 500.
+- If specific amounts are mentioned (e.g. "Rahul owes 300"), use those.
 - If Previous State has non-null values, KEEP them unless the User Message explicitly overrides them. Merge the User Message details into the Previous State.
 - If amount has a calculation (e.g. "2 items 50 each"), compute the total.
 - Be smart about category: "biriyani" → food, "Uber" → transport, "Netflix" → subscription.
@@ -65,15 +77,19 @@ Rules:
 
 # ─── Parser ───────────────────────────────────────────────────────────────────
 
-def parse_expense_from_text(user_message: str, image_base64: str = None, previous_state: dict = None) -> dict:
+def parse_expense_from_text(user_message: str, image_base64: str = None, previous_state: dict = None, friends: list = None) -> dict:
     """
     Send user message and/or image to Gemini and get structured expense data back.
-
-    Returns:
-        dict with parsed expense fields and metadata.
     """
     current_datetime = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
     
+    friends_context = "[]"
+    if friends:
+        friends_context = json.dumps([
+            {"id": f.id, "name": f.full_name or f.username, "email": f.email} 
+            for f in friends
+        ])
+
     # If there's an image, we still provide context to the bot
     if not user_message and image_base64:
         user_message = "Extract the expense details from the attached receipt/bill."
@@ -82,6 +98,7 @@ def parse_expense_from_text(user_message: str, image_base64: str = None, previou
         user_message=user_message,
         current_datetime=current_datetime,
         previous_state=json.dumps(previous_state or {}),
+        friends_context=friends_context
     )
 
     contents = []
@@ -179,6 +196,30 @@ def _validate_and_clean(data: dict) -> dict:
         if not data.get("payment_method_name"):
             missing.append("payment_method")
         data["missing_fields"] = missing
+
+    # Handle splits sanitization
+    splits = data.get("splits", [])
+    if not isinstance(splits, list):
+        splits = []
+    
+    cleaned_splits = []
+    for s in splits:
+        fid = s.get("friend_id")
+        amt = s.get("amount")
+        if fid:
+            try:
+                amt = float(amt) if amt else 0
+                cleaned_splits.append({"friend_id": fid, "amount": round(amt, 2)})
+            except (TypeError, ValueError):
+                pass
+    data["splits"] = cleaned_splits
+
+    # Flag if user mentioned friends/splitting but no friends were successfully matched
+    needs_selection = False
+    lower_msg = user_message.lower()
+    if ("friend" in lower_msg or "split" in lower_msg or "share" in lower_msg) and not cleaned_splits:
+        needs_selection = True
+    data["needs_friend_selection"] = needs_selection
 
     data["success"] = True
     return data

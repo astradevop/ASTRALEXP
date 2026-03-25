@@ -17,16 +17,32 @@ Instead of running `python manage.py runserver 0.0.0.0:8000` locally, you will h
 Run these commands instantly inside the Ubuntu terminal:
 ```bash
 sudo apt update
-sudo apt install python3-pip python3-venv git nginx
+sudo apt install python3-pip python3-venv git nginx postgresql postgresql-contrib libpq-dev
 git clone https://github.com/astradevop/ASTRALEXP.git
 cd ASTRALEXP/backend
 python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
-pip install gunicorn
+pip install gunicorn psycopg2-binary
 ```
 
-### Step 1.3: Configure Production Database & Static files
+### Step 1.3: Set up PostgreSQL Database 
+Django expects a PostgreSQL database to exist before migrations can run. Let's create it on the AWS server:
+```bash
+sudo -u postgres psql
+```
+*Inside the SQL prompt, type:*
+```sql
+CREATE DATABASE astralexp_db;
+ALTER USER postgres WITH PASSWORD '8848';
+ALTER ROLE postgres SET client_encoding TO 'utf8';
+ALTER ROLE postgres SET default_transaction_isolation TO 'read committed';
+ALTER ROLE postgres SET timezone TO 'UTC';
+GRANT ALL PRIVILEGES ON DATABASE astralexp_db TO postgres;
+\q
+```
+
+### Step 1.4: Configure Production Database & Static files
 Update `.env` on your EC2 specifically for prod:
 ```bash
 nano .env # Add your Razorpay, Gemini, and EC2 Public IP to ALLOWED_HOSTS
@@ -34,14 +50,58 @@ python manage.py makemigrations
 python manage.py migrate
 ```
 
-### Step 1.4: Link Gunicorn & NGINX
-We run Django with **Gunicorn**, and reverse proxy it onto Port 80 using **Nginx**.
-Run Gunicorn in the background:
+### Step 1.5: Configure Gunicorn Systemd Service
+Instead of running Gunicorn manually, we will create robust systemd service files so your backend automatically restarts on server reboots or crashes.
+
+Create the Gunicorn socket file:
 ```bash
-gunicorn config.wsgi:application --bind 0.0.0.0:8000 --daemon
+sudo nano /etc/systemd/system/gunicorn.socket
+```
+*Paste this content:*
+```ini
+[Unit]
+Description=gunicorn socket
+
+[Socket]
+ListenStream=/run/gunicorn.sock
+
+[Install]
+WantedBy=sockets.target
 ```
 
-Configure NGINX:
+Create the Gunicorn service file:
+```bash
+sudo nano /etc/systemd/system/gunicorn.service
+```
+*Paste this content:*
+```ini
+[Unit]
+Description=gunicorn daemon
+Requires=gunicorn.socket
+After=network.target
+
+[Service]
+User=ubuntu
+Group=www-data
+WorkingDirectory=/home/ubuntu/ASTRALEXP/backend
+ExecStart=/home/ubuntu/ASTRALEXP/backend/venv/bin/gunicorn \
+          --access-logfile - \
+          --workers 3 \
+          --bind unix:/run/gunicorn.sock \
+          config.wsgi:application
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Start and enable Gunicorn so it boots automatically:
+```bash
+sudo systemctl start gunicorn.socket
+sudo systemctl enable gunicorn.socket
+```
+
+### Step 1.6: Configure NGINX Reverse Proxy
+Now link NGINX to the `gunicorn.sock` Unix socket we just created securely!
 ```bash
 sudo nano /etc/nginx/sites-available/astralexp
 ```
@@ -52,15 +112,18 @@ server {
     server_name <your-ec2-public-ip>;
 
     location / {
-        proxy_pass http://127.0.0.1:8000;
+        proxy_pass http://unix:/run/gunicorn.sock;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
     }
 }
 ```
-*Enable it:*
+
+*Enable it and verify syntax:*
 ```bash
 sudo ln -s /etc/nginx/sites-available/astralexp /etc/nginx/sites-enabled
+sudo nginx -t
 sudo systemctl restart nginx
 ```
 Your backend API is now permanently available at `http://<your-ec2-public-ip>`.
@@ -101,8 +164,9 @@ Before building, open `mobile/src/services/api.js` and change your local `localh
 Inside the `mobile/` directory, I've created the `eas.json` configuration file, preparing the build profile to extract `.apk` specifically rather than the default `.aab` (Google Play format).
 
 ### Step 3.3: Trigger Compile Process!
-Open your terminal inside the `/mobile` directory and authenticate with Expo:
+Open your terminal inside the `/mobile` directory and authenticate with Expo. If you are already logged into an old account, log out first:
 ```bash
+npx eas logout
 npx eas login
 ```
 Trigger the cloud compilation:
