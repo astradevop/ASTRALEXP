@@ -313,7 +313,11 @@ export default function ChatScreen({ navigation }) {
       />
 
       {/* Input bar */}
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={80}>
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
+        style={{ flex: 0 }}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 80 : 0}
+      >
         <View style={styles.inputBar}>
           <TouchableOpacity onPress={pickImage} style={[styles.addBtn, { marginRight: -4 }]} activeOpacity={0.7}>
             <Ionicons name="camera-outline" size={26} color={Colors.onSurfaceVariant} />
