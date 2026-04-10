@@ -37,6 +37,15 @@
       ],
       "expo-font"
     ],
+    "updates": {
+      "url": "https://u.expo.dev/8e224b83-9b9e-4cb3-83f9-3abba5313c87",
+      "enabled": true,
+      "checkOnLaunch": "ALWAYS",
+      "fallbackToCacheTimeout": 0
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
     "extra": {
       "eas": {
         "projectId": "8e224b83-9b9e-4cb3-83f9-3abba5313c87"
