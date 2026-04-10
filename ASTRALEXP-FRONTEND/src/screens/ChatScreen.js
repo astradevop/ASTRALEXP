@@ -1,10 +1,9 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
-  ActivityIndicator, Alert,
+  FlatList, ActivityIndicator, Alert,
   Platform, SafeAreaView, Keyboard, StatusBar, Image
 } from 'react-native';
-import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
@@ -302,44 +301,40 @@ export default function ChatScreen({ navigation }) {
         </TouchableOpacity>
       </View>
 
-      <KeyboardAwareScrollView
+      {/* Messages */}
+      <FlatList
         ref={listRef}
-        style={{ flex: 1 }}
-        contentContainerStyle={{ flexGrow: 1 }}
+        data={messages}
+        keyExtractor={(i) => i.id}
+        renderItem={renderItem}
+        contentContainerStyle={styles.list}
+        onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: true })}
         keyboardShouldPersistTaps="handled"
-        extraScrollHeight={20}
-        enableOnAndroid={true}
-      >
-        <View style={{ flex: 1 }}>
-          {messages.map((item) => (
-            <View key={item.id}>
-              {renderItem({ item })}
-            </View>
-          ))}
-        </View>
-
-        <View style={styles.inputBar}>
-          <TouchableOpacity onPress={pickImage} style={[styles.addBtn, { marginRight: -4 }]} activeOpacity={0.7}>
-            <Ionicons name="camera-outline" size={26} color={Colors.onSurfaceVariant} />
-          </TouchableOpacity>
-          <TextInput
-            style={styles.textIn}
-            value={input}
-            onChangeText={setInput}
-            placeholder="Type your expense..."
-            placeholderTextColor={Colors.outline}
-            multiline
-            maxLength={400}
-            onSubmitEditing={() => send(null, null)}
-          />
-          <TouchableOpacity style={styles.sendBtn} onPress={() => send(null, null)} disabled={sending} activeOpacity={0.8}>
-            {sending
-              ? <ActivityIndicator color="#fff" size="small" />
-              : <Ionicons name="send" size={18} color="#fff" />
-            }
-          </TouchableOpacity>
-        </View>
-      </KeyboardAwareScrollView>
+        style={{ flex: 1 }}
+      />
+      
+      {/* Input bar */}
+      <View style={styles.inputBar}>
+        <TouchableOpacity onPress={pickImage} style={[styles.addBtn, { marginRight: -4 }]} activeOpacity={0.7}>
+          <Ionicons name="camera-outline" size={26} color={Colors.onSurfaceVariant} />
+        </TouchableOpacity>
+        <TextInput
+          style={styles.textIn}
+          value={input}
+          onChangeText={setInput}
+          placeholder="Type your expense..."
+          placeholderTextColor={Colors.outline}
+          multiline
+          maxLength={400}
+          onSubmitEditing={() => send(null, null)}
+        />
+        <TouchableOpacity style={styles.sendBtn} onPress={() => send(null, null)} disabled={sending} activeOpacity={0.8}>
+          {sending
+            ? <ActivityIndicator color="#fff" size="small" />
+            : <Ionicons name="send" size={18} color="#fff" />
+          }
+        </TouchableOpacity>
+      </View>
     </SafeAreaView>
   );
 }
