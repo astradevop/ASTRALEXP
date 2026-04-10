@@ -37,9 +37,15 @@ jobs:
             python manage.py migrate
             python manage.py collectstatic --noinput
             
-            # 5. Restart Gunicorn Daemon
+            # 5. Restart Gunicorn & Nginx properly
             sudo systemctl daemon-reload
+            sudo systemctl restart gunicorn.socket
             sudo systemctl restart gunicorn
             sudo systemctl restart nginx
+            
+            # 6. Verify health
+            sleep 2
+            sudo systemctl is-active --quiet gunicorn || (echo "Gunicorn failed to start" && exit 1)
+            sudo systemctl is-active --quiet nginx || (echo "Nginx failed to start" && exit 1)
             
             echo "Deployment to Remote AWS Server executed successfully!"
