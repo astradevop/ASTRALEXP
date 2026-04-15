@@ -8,10 +8,12 @@ import json
 import re
 import logging
 import base64
+import time
 from datetime import datetime, timezone
 
 from google import genai
 from google.genai import types
+from google.genai.errors import ClientError
 from django.conf import settings
 
 logger = logging.getLogger(__name__)
@@ -119,35 +121,60 @@ def parse_expense_from_text(user_message: str, image_base64: str = None, previou
 
     contents.append(prompt)
 
-    try:
-        response = _client.models.generate_content(
-            model=settings.GEMINI_MODEL,
-            contents=contents,
-        )
-        raw_text = response.text.strip()
+    # Try with primary model first, with retries
+    max_retries = 3
+    base_delay = 2  # seconds
+    
+    # We use a list of models to try in order
+    # Note: Using 1.5-pro as it's the standard high-capacity fallback
+    models_to_try = [settings.GEMINI_MODEL, "gemini-1.5-pro"]
+    
+    last_error = None
 
-        # Strip markdown code blocks if Gemini wraps JSON in them
-        raw_text = re.sub(r"^```(?:json)?\n?", "", raw_text)
-        raw_text = re.sub(r"\n?```$", "", raw_text)
+    for model_name in models_to_try:
+        for attempt in range(max_retries):
+            try:
+                logger.info(f"Attempting parse with {model_name} (Attempt {attempt+1}/{max_retries})")
+                response = _client.models.generate_content(
+                    model=model_name,
+                    contents=contents,
+                )
+                raw_text = response.text.strip()
 
-        parsed = json.loads(raw_text)
-        
-        # Hard-merge from python to prevent AI dropping context
-        if previous_state and isinstance(previous_state, dict):
-            for key in ["amount", "category", "payment_method_name", "expense_time", "note"]:
-                if previous_state.get(key) is not None and not previous_state.get(key) == "other":
-                    if not parsed.get(key) or parsed.get(key) == "other":
-                        parsed[key] = previous_state[key]
+                # Strip markdown code blocks if Gemini wraps JSON in them
+                raw_text = re.sub(r"^```(?:json)?\n?", "", raw_text)
+                raw_text = re.sub(r"\n?```$", "", raw_text)
 
-        return _validate_and_clean(parsed, user_message)
+                parsed = json.loads(raw_text)
+                
+                # Hard-merge from python to prevent AI dropping context
+                if previous_state and isinstance(previous_state, dict):
+                    for key in ["amount", "category", "payment_method_name", "expense_time", "note"]:
+                        if previous_state.get(key) is not None and not previous_state.get(key) == "other":
+                            if not parsed.get(key) or parsed.get(key) == "other":
+                                parsed[key] = previous_state[key]
 
-    except json.JSONDecodeError as e:
-        logger.error(f"Gemini returned invalid JSON: {e}\nRaw: {raw_text}")
-        return _error_response("Could not parse the AI response. Please try again.")
+                return _validate_and_clean(parsed, user_message)
 
-    except Exception as e:
-        logger.error(f"Gemini API error: {e}")
-        return _error_response(str(e))
+            except (json.JSONDecodeError, Exception) as e:
+                last_error = e
+                # Check if it's a rate limit / 503 error
+                error_str = str(e).lower()
+                is_retryable = "503" in error_str or "overloaded" in error_str or "rate limit" in error_str or "429" in error_str
+                
+                if is_retryable and attempt < max_retries - 1:
+                    wait_time = base_delay * (2 ** attempt)
+                    logger.warning(f"Gemini overloaded/rate-limited. Retrying in {wait_time}s... Error: {e}")
+                    time.sleep(wait_time)
+                    continue
+                else:
+                    # If not retryable or we exhausted retries for THIS model, 
+                    # break inner loop to try the NEXT model in the fallback list
+                    logger.error(f"Failed with {model_name}: {e}")
+                    break
+
+    # If we reached here, both models failed after all retries
+    return _error_response(f"AI Service is currently overloaded. Please try again in a minute. (Error: {last_error})")
 
 
 def _validate_and_clean(data: dict, user_message: str) -> dict:
