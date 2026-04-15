@@ -44,6 +44,7 @@ export default function ChatScreen({ navigation }) {
 
   const loadHistory = async () => {
     try {
+      // Load message history
       const saved = await AsyncStorage.getItem(`chat_history_${user?.id}`);
       if (saved) {
         setMessages(JSON.parse(saved));
@@ -51,6 +52,12 @@ export default function ChatScreen({ navigation }) {
         pushBot(
           `${GREETING}, ${user?.full_name?.split(' ')[0] || 'there'}! 👋\n\nI'm your expense assistant. Tell me what you spent or upload a receipt.\n\nTry: _"Had biriyani for 180 via GPay"_`
         );
+      }
+
+      // Load pending AI context (persistence fix)
+      const savedPending = await AsyncStorage.getItem(`chat_pending_state_${user?.id}`);
+      if (savedPending) {
+        setPending(JSON.parse(savedPending));
       }
     } catch {
       pushBot(
@@ -70,16 +77,26 @@ export default function ChatScreen({ navigation }) {
   };
 
   useEffect(() => {
-    const saveHistory = async () => {
-      const persistable = messages.filter(m => m.role !== 'chips');
-      if (persistable.length > 0) {
-        try {
+    const saveState = async () => {
+      try {
+        // Save chat history
+        const persistable = messages.filter(m => m.role !== 'chips');
+        if (persistable.length > 0) {
           await AsyncStorage.setItem(`chat_history_${user?.id}`, JSON.stringify(persistable));
-        } catch {}
+        }
+
+        // Save pending AI context (persistence fix)
+        if (pendingParsed) {
+          await AsyncStorage.setItem(`chat_pending_state_${user?.id}`, JSON.stringify(pendingParsed));
+        } else {
+          await AsyncStorage.removeItem(`chat_pending_state_${user?.id}`);
+        }
+      } catch (err) {
+        console.error('Failed to persist chat state:', err);
       }
     };
-    saveHistory();
-  }, [messages, user]);
+    saveState();
+  }, [messages, pendingParsed, user]);
 
   const loadFriends = async () => {
     try {
