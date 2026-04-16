@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import {
-  View, Text, StyleSheet, Animated, Dimensions, Image,
+  View, Text, StyleSheet, Animated, Dimensions, Image, Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../theme';
@@ -16,14 +16,14 @@ export default function SplashScreen({ navigation }) {
 
   useEffect(() => {
     Animated.parallel([
-      Animated.timing(opacity, { toValue: 1, duration: 700, useNativeDriver: true }),
-      Animated.spring(scale, { toValue: 1, friction: 6, useNativeDriver: true }),
+      Animated.timing(opacity, { toValue: 1, duration: 700, useNativeDriver: Platform.OS !== 'web' }),
+      Animated.spring(scale, { toValue: 1, friction: 6, useNativeDriver: Platform.OS !== 'web' }),
     ]).start();
 
     Animated.loop(
       Animated.sequence([
-        Animated.timing(glowAnim, { toValue: 1, duration: 1800, useNativeDriver: false }),
-        Animated.timing(glowAnim, { toValue: 0, duration: 1800, useNativeDriver: false }),
+        Animated.timing(glowAnim, { toValue: 1, duration: 1800, useNativeDriver: Platform.OS !== 'web' }),
+        Animated.timing(glowAnim, { toValue: 0, duration: 1800, useNativeDriver: Platform.OS !== 'web' }),
       ])
     ).start();
   }, []);

@@ -29,10 +29,11 @@ export default function RegisterScreen({ navigation }) {
       await register({ email: email.trim(), username: username.trim(), full_name: fullName.trim(), password, password2 });
       navigation.replace('MainTabs');
     } catch (err) {
+      console.error('Registration Error:', err.response?.data);
       const data = err.response?.data;
-      const msg = err.response?.data
-        ? Object.values(err.response.data).flat().join('\n')
-        : (err.message === 'Network Error' ? 'We are currently unable to connect to our servers. Please check your internet connection and try again.' : 'An unexpected error occurred. Please try again.');
+      const msg = data
+        ? Object.entries(data).map(([k, v]) => `${k}: ${v}`).join('\n')
+        : (err.message === 'Network Error' ? 'Unable to connect to server.' : 'An unexpected error occurred.');
       Alert.alert('Registration Failed', msg);
     } finally { setLoading(false); }
   };
