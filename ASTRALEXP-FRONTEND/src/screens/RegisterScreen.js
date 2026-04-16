@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
-  ScrollView, ActivityIndicator, Alert, KeyboardAvoidingView, Platform,
+  ScrollView, ActivityIndicator, Alert, KeyboardAvoidingView, Platform, Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, Radius } from '../theme';
@@ -30,35 +30,117 @@ export default function RegisterScreen({ navigation }) {
       navigation.replace('MainTabs');
     } catch (err) {
       const data = err.response?.data;
-      const msg  = data
-        ? Object.values(data).flat().join('\n')
-        : (err.message === 'Network Error' ? 'Network Error: Phone cannot reach the backend. Check Windows Firewall.' : err.message);
+      const msg = err.response?.data
+        ? Object.values(err.response.data).flat().join('\n')
+        : (err.message === 'Network Error' ? 'We are currently unable to connect to our servers. Please check your internet connection and try again.' : 'An unexpected error occurred. Please try again.');
       Alert.alert('Registration Failed', msg);
     } finally { setLoading(false); }
   };
 
-  const Field = ({ label, icon, value, onChange, placeholder, secureText, keyboardType, autoCapitalize, extra }) => (
-    <View style={styles.fieldGroup}>
-      <Text style={styles.label}>{label}</Text>
-      <View style={styles.inputWrap}>
-        <Ionicons name={icon} size={18} color={Colors.onSurfaceVariant} style={styles.inputIcon} />
-        <TextInput
-          style={[styles.input, { flex: 1 }]}
-          value={value}
-          onChangeText={onChange}
-          placeholder={placeholder}
-          placeholderTextColor={Colors.outline}
-          secureTextEntry={secureText}
-          keyboardType={keyboardType || 'default'}
-          autoCapitalize={autoCapitalize || 'none'}
-          autoCorrect={false}
-        />
-        {extra}
-      </View>
-    </View>
-  );
+  // ── Desktop / tablet two-column layout ───────────────────────────────────
+  if (layout.isLargeScreen) {
+    return (
+      <View style={styles.desktopRoot}>
+        {/* Left hero panel */}
+        <View style={styles.heroPanel}>
+          <View style={styles.heroBg1} />
+          <View style={styles.heroBg2} />
+          <View style={styles.heroContent}>
+            <View style={styles.heroIconWrap}>
+              <Image 
+                source={require('../../assets/icon.png')} 
+                style={{ width: 56, height: 56, borderRadius: 14 }} 
+                resizeMode="contain"
+              />
+            </View>
+            <Text style={styles.heroTitle}>AstralExp</Text>
+            <Text style={styles.heroSubtitle}>THE DIGITAL PRIVATE VAULT</Text>
+            <View style={styles.heroSeparator} />
+            <Text style={styles.heroDesc}>
+              Join thousands who track{'\n'}expenses intelligently with{'\n'}AI-powered conversations.
+            </Text>
+          </View>
+        </View>
 
-  const FormBody = () => (
+        {/* Right form */}
+        <ScrollView
+          style={styles.formPanel}
+          contentContainerStyle={styles.formPanelContent}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={styles.formCard}>
+            <Text style={styles.formTitle}>Create Account</Text>
+            <Text style={styles.formSubtitle}>Enter the digital private vault</Text>
+            <View style={styles.accentBar} />
+            <FormBody 
+              state={{ email, username, fullName, password, password2, showPwd, loading }}
+              setters={{ setEmail, setUsername, setFullName, setPwd, setPwd2, setShowPwd, handleRegister }}
+              navigation={navigation}
+            />
+          </View>
+        </ScrollView>
+      </View>
+    );
+  }
+
+  // ── Mobile layout (original) ──────────────────────────────────────────────
+  return (
+    <KeyboardAvoidingView style={styles.root} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <View style={styles.glob1} />
+      <View style={styles.glob2} />
+      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+        <View style={styles.brand}>
+          <View style={styles.iconWrap}>
+            <Image 
+              source={require('../../assets/icon.png')} 
+              style={{ width: 44, height: 44, borderRadius: 10 }} 
+              resizeMode="contain"
+            />
+          </View>
+          <Text style={styles.appTitle}>Create Account</Text>
+          <Text style={styles.appSubtitle}>Enter the Digital Private Vault</Text>
+        </View>
+        <View style={[styles.card, { position: 'relative', overflow: 'hidden' }]}>
+          <View style={styles.accentBarMobile} />
+          <FormBody 
+            state={{ email, username, fullName, password, password2, showPwd, loading }}
+            setters={{ setEmail, setUsername, setFullName, setPwd, setPwd2, setShowPwd, handleRegister }}
+            navigation={navigation}
+          />
+        </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
+  );
+}
+
+// ── Helpers ─────────────────────────────────────────────────────────────
+
+const Field = ({ label, icon, value, onChange, placeholder, secureText, keyboardType, autoCapitalize, extra }) => (
+  <View style={styles.fieldGroup}>
+    <Text style={styles.label}>{label}</Text>
+    <View style={styles.inputWrap}>
+      <Ionicons name={icon} size={18} color={Colors.onSurfaceVariant} style={styles.inputIcon} />
+      <TextInput
+        style={[styles.input, { flex: 1 }]}
+        value={value}
+        onChangeText={onChange}
+        placeholder={placeholder}
+        placeholderTextColor={Colors.outline}
+        secureTextEntry={secureText}
+        keyboardType={keyboardType || 'default'}
+        autoCapitalize={autoCapitalize || 'none'}
+        autoCorrect={false}
+      />
+      {extra}
+    </View>
+  </View>
+);
+
+const FormBody = ({ state, setters, navigation }) => {
+  const { email, username, fullName, password, password2, showPwd, loading } = state;
+  const { setEmail, setUsername, setFullName, setPwd, setPwd2, setShowPwd, handleRegister } = setters;
+
+  return (
     <>
       <Field label="EMAIL ADDRESS"    icon="mail-outline"           value={email}    onChange={setEmail}    placeholder="name@example.com" keyboardType="email-address" />
       <Field label="USERNAME"         icon="person-outline"         value={username} onChange={setUsername} placeholder="yourhandle" />
@@ -87,66 +169,7 @@ export default function RegisterScreen({ navigation }) {
       </View>
     </>
   );
-
-  // ── Desktop / tablet two-column layout ───────────────────────────────────
-  if (layout.isLargeScreen) {
-    return (
-      <View style={styles.desktopRoot}>
-        {/* Left hero panel */}
-        <View style={styles.heroPanel}>
-          <View style={styles.heroBg1} />
-          <View style={styles.heroBg2} />
-          <View style={styles.heroContent}>
-            <View style={styles.heroIconWrap}>
-              <Ionicons name="wallet" size={48} color="#fff" />
-            </View>
-            <Text style={styles.heroTitle}>AstralExp</Text>
-            <Text style={styles.heroSubtitle}>THE DIGITAL PRIVATE VAULT</Text>
-            <View style={styles.heroSeparator} />
-            <Text style={styles.heroDesc}>
-              Join thousands who track{'\n'}expenses intelligently with{'\n'}AI-powered conversations.
-            </Text>
-          </View>
-        </View>
-
-        {/* Right form */}
-        <ScrollView
-          style={styles.formPanel}
-          contentContainerStyle={styles.formPanelContent}
-          keyboardShouldPersistTaps="handled"
-        >
-          <View style={styles.formCard}>
-            <Text style={styles.formTitle}>Create Account</Text>
-            <Text style={styles.formSubtitle}>Enter the digital private vault</Text>
-            <View style={styles.accentBar} />
-            <FormBody />
-          </View>
-        </ScrollView>
-      </View>
-    );
-  }
-
-  // ── Mobile layout (original) ──────────────────────────────────────────────
-  return (
-    <KeyboardAvoidingView style={styles.root} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <View style={styles.glob1} />
-      <View style={styles.glob2} />
-      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-        <View style={styles.brand}>
-          <View style={styles.iconWrap}>
-            <Ionicons name="wallet" size={26} color="#fff" />
-          </View>
-          <Text style={styles.appTitle}>Create Account</Text>
-          <Text style={styles.appSubtitle}>Enter the Digital Private Vault</Text>
-        </View>
-        <View style={[styles.card, { position: 'relative', overflow: 'hidden' }]}>
-          <View style={styles.accentBarMobile} />
-          <FormBody />
-        </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
-  );
-}
+};
 
 const styles = StyleSheet.create({
   // ── Mobile ──────────────────────────────────────────────────────────────

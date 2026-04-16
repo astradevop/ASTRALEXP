@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Platform, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../theme';
 
@@ -38,7 +38,11 @@ export default function WebSidebar({ activeRoute, onNavigate, sidebarWidth = 240
       {/* Brand */}
       <View style={[styles.brand, collapsed && styles.brandCollapsed]}>
         <View style={styles.brandIcon}>
-          <Ionicons name="wallet" size={20} color="#fff" />
+          <Image 
+            source={require('../../assets/icon.png')} 
+            style={{ width: 28, height: 28, borderRadius: 6 }} 
+            resizeMode="contain"
+          />
         </View>
         {!collapsed && (
           <View style={{ flex: 1 }}>

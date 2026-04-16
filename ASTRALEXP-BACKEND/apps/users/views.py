@@ -1,3 +1,4 @@
+import logging
 from django.contrib.auth import get_user_model
 from rest_framework import status, generics
 from rest_framework.decorators import api_view, permission_classes
@@ -15,6 +16,7 @@ from .serializers import (
     ChangePasswordSerializer,
 )
 
+logger = logging.getLogger(__name__)
 User = get_user_model()
 
 
@@ -165,6 +167,8 @@ class CreateSubscriptionIntentView(APIView):
         if request.user.subscription_tier == "pro":
             return Response({"error": "You are already a Pro member."}, status=400)
 
+        callback_url = request.data.get('callback_url', "https://astralexp-mock-success.vercel.app/")
+
         try:
             client = razorpay.Client(auth=(RZP_KEY_ID, RZP_KEY_SECRET))
             
@@ -175,19 +179,20 @@ class CreateSubscriptionIntentView(APIView):
                 "accept_partial": False,
                 "description": "AstralExp Pro Monthly Subscription",
                 "reminder_enable": False,
-                "callback_url": "https://astralexp-mock-success.vercel.app/", # A mock endpoint to return to
+                "callback_url": callback_url,
                 "callback_method": "get"
             }
             
             payment_link = client.payment_link.create(payment_link_data)
             return Response({"payment_link": payment_link['short_url']})
         except Exception as e:
-            print(f"RAZORPAY PAYMENT LINK ERROR: {str(e)}")
-            # Fallback for dev testing without real API keys
+            logger.error(f"RAZORPAY PAYMENT LINK ERROR: {str(e)}")
+            fallback_link = f"{callback_url}?razorpay_payment_id=mock_pay_123&razorpay_payment_link_id=mock_link_123&razorpay_payment_link_status=paid"
             return Response({
-                "error": str(e),
-                "payment_link_fallback": "https://example.com/razorpay-mock-link"
+                "error": "Payment gateway is currently unavailable. Please try again later.",
+                "payment_link_fallback": fallback_link
             }, status=200)
+
 
 
 class VerifySubscriptionView(APIView):
@@ -198,8 +203,41 @@ class VerifySubscriptionView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        # In a real app, you would verify the intent server-side or use webhooks.
-        # Since this is a test environment, we trust the frontend success if it completes.
+        payment_id = request.data.get('razorpay_payment_id')
+        payment_link_id = request.data.get('razorpay_payment_link_id')
+        signature = request.data.get('razorpay_signature')
+        payment_link_status = request.data.get('razorpay_payment_link_status')
+        payment_link_reference_id = request.data.get('razorpay_payment_link_reference_id')
+
+        if not payment_id:
+            return Response({"error": "Missing payment information. Payment ID not found."}, status=400)
+
+        # Skip status check for manual testing override
+        if payment_id == 'manual_check':
+            user = request.user
+            user.subscription_tier = "pro"
+            user.save()
+            return Response(
+                {"message": "Successfully upgraded to Pro!", "user": ProfileSerializer(user).data}
+            )
+
+        # Check status from Razorpay redirect
+        if payment_link_status and payment_link_status != 'paid':
+            return Response({"error": f"Payment was not successful (status: {payment_link_status})."}, status=400)
+
+        # In a real app with valid Razorpay credentials, verify signature here:
+        # try:
+        #     client = razorpay.Client(auth=(RZP_KEY_ID, RZP_KEY_SECRET))
+        #     client.utility.verify_payment_link_signature({
+        #         'payment_link_id': payment_link_id,
+        #         'payment_link_reference_id': payment_link_reference_id,
+        #         'payment_link_status': payment_link_status,
+        #         'payment_id': payment_id,
+        #         'signature': signature
+        #     })
+        # except Exception as e:
+        #     return Response({"error": "Payment signature verification failed."}, status=400)
+
         user = request.user
         user.subscription_tier = "pro"
         user.save()

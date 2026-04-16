@@ -51,8 +51,8 @@ export const authAPI = {
   }),
   changePassword: (data) => api.post('/auth/change-password/', data),
   deleteAccount:  ()     => api.delete('/auth/profile/'),
-  createSubIntent:()     => api.post('/auth/subscription/create-intent/'),
-  verifySub:      ()     => api.post('/auth/subscription/verify/'),
+  createSubIntent:(data) => api.post('/auth/subscription/create-intent/', data),
+  verifySub:      (data) => api.post('/auth/subscription/verify/', data),
 };
 
 // ─── Chat ─────────────────────────────────────────────────────────────────────

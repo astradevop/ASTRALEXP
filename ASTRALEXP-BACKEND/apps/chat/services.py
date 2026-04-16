@@ -174,7 +174,7 @@ def parse_expense_from_text(user_message: str, image_base64: str = None, previou
                     break
 
     # If we reached here, both models failed after all retries
-    return _error_response(f"AI Service is currently overloaded. Please try again in a minute. (Error: {last_error})")
+    return _error_response("The AI service is currently overloaded. Please try again in a minute.")
 
 
 def _validate_and_clean(data: dict, user_message: str) -> dict:

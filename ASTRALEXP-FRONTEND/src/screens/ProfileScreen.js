@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet,
-  ScrollView, Alert, SafeAreaView, ActivityIndicator, Platform, StatusBar, TextInput, Image, Linking
+  ScrollView, Alert, SafeAreaView, ActivityIndicator, Platform, StatusBar, TextInput, Image
 } from 'react-native';
+import * as Linking from 'expo-linking';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { Colors, Spacing, Radius } from '../theme';
@@ -29,6 +30,30 @@ export default function ProfileScreen({ navigation }) {
         navigation.replace('Login');
       }},
     ]);
+  };
+
+  const url = Linking.useURL();
+
+  useEffect(() => {
+    if (url) {
+      const { queryParams } = Linking.parse(url);
+      if (queryParams?.razorpay_payment_id || queryParams?.razorpay_payment_link_id) {
+        verifyPayment(queryParams);
+      }
+    }
+  }, [url]);
+
+  const verifyPayment = async (params) => {
+    try {
+      setLoading(true);
+      const res = await authAPI.verifySub(params);
+      setUser(res.data.user);
+      Alert.alert('Success', 'Welcome to AstralExp Pro!');
+    } catch (e) {
+      Alert.alert('Verification Failed', e.response?.data?.error || 'Failed to verify payment.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const updateCurrency = async (sym) => {
@@ -99,21 +124,14 @@ export default function ProfileScreen({ navigation }) {
   const handleUpgrade = async () => {
     try {
       setLoading(true);
-      const { data } = await authAPI.createSubIntent();
+      const returnUrl = Linking.createURL('profile');
+      const { data } = await authAPI.createSubIntent({ callback_url: returnUrl });
       const link = data.payment_link || data.payment_link_fallback;
-      await Linking.openURL(link);
-      Alert.alert(
-        'Testing Mode',
-        'In Test Mode, pretend you completed the Razorpay checkout in your browser. Upgrade your account?',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Confirm Payment', onPress: async () => {
-            const verifyRes = await authAPI.verifySub();
-            setUser(verifyRes.data.user);
-            Alert.alert('Success', 'Welcome to AstralExp Pro!');
-          }}
-        ]
-      );
+      if (link) {
+        await Linking.openURL(link);
+      } else {
+        Alert.alert('Payment Error', 'No payment link could be generated.');
+      }
     } catch (e) {
       Alert.alert('Payment Failed', e.response?.data?.error || e.message);
     } finally { setLoading(false); }
@@ -195,6 +213,9 @@ export default function ProfileScreen({ navigation }) {
               </View>
               <TouchableOpacity onPress={handleUpgrade} style={[styles.upgradeBtn, layout.isLargeScreen && { paddingVertical: 6, paddingHorizontal: 12 }]}>
                 <Text style={[styles.upgradeText, layout.isLargeScreen && { fontSize: 11 }]}>UPGRADE ✨</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => verifyPayment({ razorpay_payment_id: 'manual_check' })} style={[styles.verifyBtn, layout.isLargeScreen && { paddingVertical: 6, paddingHorizontal: 12 }]}>
+                <Text style={[styles.verifyText, layout.isLargeScreen && { fontSize: 11 }]}>VERIFY</Text>
               </TouchableOpacity>
             </>
           )}
@@ -394,6 +415,8 @@ const styles = StyleSheet.create({
   badgeText:   { fontSize: 9, fontWeight: '700', color: Colors.tertiary, letterSpacing: 1 },
   upgradeBtn:  { backgroundColor: '#635BFF', paddingHorizontal: 10, paddingVertical: 4, borderRadius: Radius.sm },
   upgradeText: { fontSize: 9, fontWeight: '700', color: '#fff', letterSpacing: 1 },
+  verifyBtn:   { backgroundColor: Colors.surfaceContainerHighest, paddingHorizontal: 10, paddingVertical: 4, borderRadius: Radius.sm, borderWidth: 1, borderColor: Colors.outlineVariant + '30' },
+  verifyText:  { fontSize: 9, fontWeight: '700', color: Colors.primary, letterSpacing: 1 },
 
   row:         { flexDirection: 'row', gap: 12 },
   currBtn:     { flex: 1, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: Colors.surfaceContainerLow, paddingHorizontal: 16, height: 56, borderRadius: Radius.md },

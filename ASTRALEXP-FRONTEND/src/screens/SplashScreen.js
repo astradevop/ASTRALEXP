@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import {
-  View, Text, StyleSheet, Animated, Dimensions,
+  View, Text, StyleSheet, Animated, Dimensions, Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../theme';
@@ -44,7 +44,11 @@ export default function SplashScreen({ navigation }) {
 
       <Animated.View style={[styles.content, { opacity, transform: [{ scale }] }]}>
         <View style={styles.iconWrap}>
-          <Ionicons name="wallet" size={52} color={Colors.primaryContainer} />
+          <Image 
+            source={require('../../assets/icon.png')} 
+            style={{ width: 64, height: 64, borderRadius: 12 }} 
+            resizeMode="contain"
+          />
         </View>
         <Text style={styles.title}>AstralExp</Text>
         <Text style={styles.subtitle}>FINANCIAL FLUIDITY</Text>

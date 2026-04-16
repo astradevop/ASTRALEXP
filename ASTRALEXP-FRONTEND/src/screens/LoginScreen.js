@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
-  ScrollView, ActivityIndicator, Alert, KeyboardAvoidingView, Platform,
+  ScrollView, ActivityIndicator, Alert, KeyboardAvoidingView, Platform, Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, Radius } from '../theme';
@@ -24,8 +24,8 @@ export default function LoginScreen({ navigation }) {
       navigation.replace('MainTabs');
     } catch (err) {
       const msg = err.message === 'Network Error'
-        ? 'Network Error: Phone cannot reach the backend.'
-        : (err.response?.data?.detail || err.message);
+        ? 'We are currently unable to connect to our servers. Please check your internet connection and try again.'
+        : (err.response?.data?.detail || 'An unexpected error occurred. Please try again.');
       Alert.alert('Login Failed', msg);
     } finally { setLoading(false); }
   };
@@ -40,7 +40,11 @@ export default function LoginScreen({ navigation }) {
           <View style={styles.heroBg2} />
           <View style={styles.heroContent}>
             <View style={styles.heroIconWrap}>
-              <Ionicons name="wallet" size={52} color="#fff" />
+                <Image 
+                  source={require('../../assets/icon.png')} 
+                  style={{ width: 60, height: 60, borderRadius: 14 }} 
+                  resizeMode="contain"
+                />
             </View>
             <Text style={styles.heroTitle}>AstralExp</Text>
             <Text style={styles.heroSubtitle}>THE DIGITAL PRIVATE VAULT</Text>
@@ -138,7 +142,11 @@ export default function LoginScreen({ navigation }) {
         {/* Brand */}
         <View style={styles.brand}>
           <View style={styles.iconWrap}>
-            <Ionicons name="wallet" size={32} color="#fff" />
+            <Image 
+              source={require('../../assets/icon.png')} 
+              style={{ width: 56, height: 56, borderRadius: 14 }} 
+              resizeMode="contain"
+            />
           </View>
           <Text style={styles.appTitle}>AstralExp</Text>
           <Text style={styles.appSubtitle}>THE DIGITAL PRIVATE VAULT</Text>

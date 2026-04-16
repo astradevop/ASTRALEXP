@@ -147,17 +147,24 @@ def _save_expense(user, raw_input: str, parsed: dict) -> Expense | None:
     # Prepare data for serializer
     splits_data = []
     parsed_splits = parsed.get("splits", [])
-    for s in parsed_splits:
-        fid = s.get("friend_id")
-        amt = s.get("amount")
-        if fid:
-            # If AI didn't calculate amount, it will be 0 or null
-            # Note: The UI/Backend usually handles equal split if amount is missing,
-            # but for now we expect the AI to provide it.
-            splits_data.append({
-                "debtor": fid,
-                "amount": amt or 0
-            })
+    total_amount = float(parsed.get("amount") or 0)
+    friends_to_split = len(parsed_splits)
+
+    if friends_to_split > 0:
+        # Check if we need to auto-calculate equal splits
+        calculate_equal = any(s.get("amount") in [None, 0] for s in parsed_splits)
+        
+        # If equal split: divide total by (number_of_friends + 1 user)
+        equal_share = round(total_amount / (friends_to_split + 1), 2) if calculate_equal else 0
+        
+        for s in parsed_splits:
+            fid = s.get("friend_id")
+            amt = s.get("amount")
+            if fid:
+                splits_data.append({
+                    "debtor": fid,
+                    "amount": equal_share if calculate_equal else (amt or 0)
+                })
 
     data = {
         "amount": parsed["amount"],
