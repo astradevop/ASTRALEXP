@@ -32,7 +32,7 @@ export default function RegisterScreen({ navigation }) {
       console.error('Registration Error:', err.response?.data);
       const data = err.response?.data;
       const msg = data
-        ? Object.entries(data).map(([k, v]) => `${k}: ${v}`).join('\n')
+        ? Object.entries(data).map(([k, v]) => `${k}: ${Array.isArray(v) ? v[0] : v}`).join('\n')
         : (err.message === 'Network Error' ? 'Unable to connect to server.' : 'An unexpected error occurred.');
       Alert.alert('Registration Failed', msg);
     } finally { setLoading(false); }

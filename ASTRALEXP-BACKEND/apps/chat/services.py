@@ -67,8 +67,8 @@ Friends list for matching: {friends_context}
 
 Rules:
 - If User says "split with [Friend Name]", find the friend in the provided list.
-- If total amount is 1000 and user says "split with Rahul", then amount should be 500 (user share) and one split for Rahul for 500.
-- If specific amounts are mentioned (e.g. "Rahul owes 300"), use those.
+- If total amount is 1000 and user says "split with Rahul", then amount should be 1000 (total paid amount) and one split for Rahul for 500.
+- If specific amounts are mentioned (e.g. "Rahul owes 300 out of 1000"), amount is 1000 and split amount for Rahul is 300.
 - If Previous State has non-null values, KEEP them unless the User Message explicitly overrides them. Merge the User Message details into the Previous State.
 - If amount has a calculation (e.g. "2 items 50 each"), compute the total.
 - Be smart about category: "biriyani" → food, "Uber" → transport, "Netflix" → subscription.

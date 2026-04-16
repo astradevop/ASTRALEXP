@@ -23,13 +23,20 @@ export default function ProfileScreen({ navigation }) {
   useEffect(() => { refreshUser(); }, []);
 
   const handleLogout = () => {
-    Alert.alert('Logout', 'Are you sure you want to log out?', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Logout', style: 'destructive', onPress: () => {
-        logout();
-        navigation.replace('Login');
-      }},
-    ]);
+    const run = () => {
+      logout();
+      navigation.replace('Login');
+    };
+    if (Platform.OS === 'web') {
+      if (window.confirm('Are you sure you want to log out?')) {
+        run();
+      }
+    } else {
+      Alert.alert('Logout', 'Are you sure you want to log out?', [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Logout', style: 'destructive', onPress: run },
+      ]);
+    }
   };
 
   const url = Linking.useURL();
@@ -78,47 +85,68 @@ export default function ProfileScreen({ navigation }) {
     );
   };
 
-  const handleClearChat = () => {
-    Alert.alert('Clear Chat History', 'Are you sure you want to permanently delete all chat messages with the AI?', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Clear', style: 'destructive', onPress: async () => {
-        const AsyncStorage = require('@react-native-async-storage/async-storage').default;
-        const { DeviceEventEmitter } = require('react-native');
-        await AsyncStorage.removeItem(`chat_history_${user?.id}`);
-        DeviceEventEmitter.emit('CLEAR_CHAT_HISTORY');
-        Alert.alert('Success', 'Chat history has been cleared.');
-      }},
-    ]);
+  const handleClearChat = async () => {
+    const run = async () => {
+      const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+      const { DeviceEventEmitter } = require('react-native');
+      await AsyncStorage.removeItem(`chat_history_${user?.id}`);
+      DeviceEventEmitter.emit('CLEAR_CHAT_HISTORY');
+      Alert.alert('Success', 'Chat history has been cleared.');
+    };
+    if (Platform.OS === 'web') {
+      if (window.confirm('Are you sure you want to permanently delete all chat messages with the AI?')) {
+        await run();
+      }
+    } else {
+      Alert.alert('Clear Chat History', 'Are you sure you want to permanently delete all chat messages with the AI?', [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Clear', style: 'destructive', onPress: run },
+      ]);
+    }
   };
 
-  const handleClearExpenses = () => {
-    Alert.alert('Clear All Expenses', 'This will permanently delete ALL your recorded expenses. Your vault balances will be reimbursed. Continue?', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Clear All', style: 'destructive', onPress: async () => {
-        try {
-          setLoading(true);
-          await expensesAPI.clearAll();
-          Alert.alert('Success', 'All expenses cleared.');
-        } catch {
-          Alert.alert('Error', 'Failed to clear expenses.');
-        } finally { setLoading(false); }
-      }},
-    ]);
+  const handleClearExpenses = async () => {
+    const run = async () => {
+      try {
+        setLoading(true);
+        await expensesAPI.clearAll();
+        Alert.alert('Success', 'All expenses cleared.');
+      } catch {
+        Alert.alert('Error', 'Failed to clear expenses.');
+      } finally { setLoading(false); }
+    };
+    if (Platform.OS === 'web') {
+      if (window.confirm('This will permanently delete ALL your recorded expenses. Your vault balances will be reimbursed. Continue?')) {
+        await run();
+      }
+    } else {
+      Alert.alert('Clear All Expenses', 'This will permanently delete ALL your recorded expenses. Your vault balances will be reimbursed. Continue?', [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Clear All', style: 'destructive', onPress: run },
+      ]);
+    }
   };
 
-  const handleClearVaults = () => {
-    Alert.alert('Clear All Vaults', 'This will permanently delete ALL your payment methods and reset account tracking. Continue?', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Clear All', style: 'destructive', onPress: async () => {
-        try {
-          setLoading(true);
-          await paymentsAPI.clearAll();
-          Alert.alert('Success', 'All vaults cleared.');
-        } catch {
-          Alert.alert('Error', 'Failed to clear vaults.');
-        } finally { setLoading(false); }
-      }},
-    ]);
+  const handleClearVaults = async () => {
+    const run = async () => {
+      try {
+        setLoading(true);
+        await paymentsAPI.clearAll();
+        Alert.alert('Success', 'All vaults cleared.');
+      } catch {
+        Alert.alert('Error', 'Failed to clear vaults.');
+      } finally { setLoading(false); }
+    };
+    if (Platform.OS === 'web') {
+      if (window.confirm('This will permanently delete ALL your payment methods and reset account tracking. Continue?')) {
+        await run();
+      }
+    } else {
+      Alert.alert('Clear All Vaults', 'This will permanently delete ALL your payment methods and reset account tracking. Continue?', [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Clear All', style: 'destructive', onPress: run },
+      ]);
+    }
   };
 
   const handleUpgrade = async () => {
@@ -279,7 +307,7 @@ export default function ProfileScreen({ navigation }) {
           <Ionicons name="chevron-forward" size={16} color={Colors.outlineVariant} />
         </TouchableOpacity>
         <View style={styles.divider} />
-        <TouchableOpacity style={styles.linkRow} activeOpacity={0.7}>
+        <TouchableOpacity style={styles.linkRow} onPress={() => Alert.alert('Coming Soon', 'Security Key settings will be available soon.')} activeOpacity={0.7}>
           <View style={styles.linkLeft}>
             <Ionicons name="lock-closed-outline" size={20} color={Colors.onSurfaceVariant} />
             <Text style={styles.linkText}>Change Security Key</Text>
@@ -287,7 +315,7 @@ export default function ProfileScreen({ navigation }) {
           <Ionicons name="chevron-forward" size={16} color={Colors.outlineVariant} />
         </TouchableOpacity>
         <View style={styles.divider} />
-        <TouchableOpacity style={styles.linkRow} activeOpacity={0.7}>
+        <TouchableOpacity style={styles.linkRow} onPress={() => Alert.alert('Privacy Policy', 'This feature will be available soon.')} activeOpacity={0.7}>
           <View style={styles.linkLeft}>
             <Ionicons name="shield-checkmark-outline" size={20} color={Colors.onSurfaceVariant} />
             <Text style={styles.linkText}>Privacy Policy</Text>
@@ -295,7 +323,7 @@ export default function ProfileScreen({ navigation }) {
           <Ionicons name="chevron-forward" size={16} color={Colors.outlineVariant} />
         </TouchableOpacity>
         <View style={styles.divider} />
-        <TouchableOpacity style={styles.linkRow} activeOpacity={0.7}>
+        <TouchableOpacity style={styles.linkRow} onPress={() => Alert.alert('Help & Support', 'Support section will be available soon.')} activeOpacity={0.7}>
           <View style={styles.linkLeft}>
             <Ionicons name="help-buoy-outline" size={20} color={Colors.onSurfaceVariant} />
             <Text style={styles.linkText}>Help & Support</Text>

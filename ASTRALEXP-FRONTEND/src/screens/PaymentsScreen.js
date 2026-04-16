@@ -68,16 +68,24 @@ export default function PaymentsScreen() {
 
   const del = () => {
     if (!editingId) return;
-    Alert.alert('Delete', 'Are you sure?', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: async () => {
-        try {
-          await paymentsAPI.delete(editingId);
-          setModalVisible(false);
-          loadPms();
-        } catch { Alert.alert('Error', 'Failed to delete.'); }
-      }},
-    ]);
+    const run = async () => {
+      try {
+        await paymentsAPI.delete(editingId);
+        setModalVisible(false);
+        loadPms();
+      } catch { Alert.alert('Error', 'Failed to delete.'); }
+    };
+
+    if (Platform.OS === 'web') {
+      if (window.confirm('Are you sure you want to delete this payment method?')) {
+        run();
+      }
+    } else {
+      Alert.alert('Delete', 'Are you sure?', [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Delete', style: 'destructive', onPress: run },
+      ]);
+    }
   };
 
   const renderItem = ({ item }) => {
@@ -110,99 +118,93 @@ export default function PaymentsScreen() {
     );
   };
 
-  const AddEditModal = () => (
-    <Modal visible={modalVisible} transparent animationType="fade">
-      <View style={styles.modalBg}>
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.modalContentWrap}>
-          <View style={[styles.modalCard, layout.isLargeScreen && styles.modalCardDesktop]}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>{editingId ? 'Edit Method' : 'Add Payment Method'}</Text>
-              <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
-                {editingId && (
-                  <TouchableOpacity onPress={del}><Ionicons name="trash-outline" size={20} color={Colors.error} /></TouchableOpacity>
-                )}
-                <TouchableOpacity onPress={() => setModalVisible(false)}>
-                  <Ionicons name="close" size={22} color={Colors.onSurfaceVariant} />
-                </TouchableOpacity>
-              </View>
-            </View>
-
-            <TextInput
-              style={styles.input} value={name} onChangeText={setName}
-              placeholder="Account Name (e.g. HDFC Bank)" placeholderTextColor={Colors.outline}
-            />
-
-            <View style={styles.typeGrid}>
-              {PM_TYPES.map(t => (
-                <TouchableOpacity key={t.id} style={[styles.typeBtn, type === t.id && styles.typeBtnAct]} onPress={() => setType(t.id)}>
-                  <Text style={[styles.typeText, type === t.id && styles.typeTextAct]}>{t.label}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            <TextInput
-              style={styles.input} value={String(balance)} onChangeText={setBalance}
-              placeholder="Current Balance (Optional)" placeholderTextColor={Colors.outline} keyboardType="numeric"
-            />
-
-            <TouchableOpacity style={styles.chkRow} onPress={() => setIsDef(!isDef)} activeOpacity={1}>
-              <Ionicons name={isDef ? 'checkbox' : 'square-outline'} size={24} color={isDef ? Colors.primaryContainer : Colors.outlineVariant} />
-              <Text style={styles.chkText}>Set as default payment method</Text>
-            </TouchableOpacity>
-
-            <View style={styles.modalActions}>
-              <TouchableOpacity style={styles.btnCancel} onPress={() => setModalVisible(false)}>
-                <Text style={styles.btnCancelText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.btnSave} onPress={save} disabled={saving}>
-                {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.btnSaveText}>Save Method</Text>}
-              </TouchableOpacity>
-            </View>
-          </View>
-        </KeyboardAvoidingView>
-      </View>
-    </Modal>
-  );
-
   return (
     <SafeAreaView style={[styles.root, { paddingLeft: layout.sidebarWidth }]}>
-      {/* Shared Header Style exactly like Chat */}
+      {/* Header */}
       <View style={[styles.header, layout.isLargeScreen && styles.headerDesktop]}>
         <View style={[styles.headerInner, maxWidth && { maxWidth, width: '100%', alignSelf: 'center' }]}>
-          <Text style={styles.headerTitle}>Financial Fluidity</Text>
-          <TouchableOpacity onPress={openAdd} hitSlop={{top:8,bottom:8,left:8,right:8}}>
-            <Ionicons name="add" size={26} color={Colors.primary} />
+          <Text style={styles.headerTitle}>PAYMENT METHODS</Text>
+          <TouchableOpacity onPress={openAdd}>
+            <Ionicons name="add-circle" size={32} color={Colors.primary} />
           </TouchableOpacity>
         </View>
       </View>
 
       <View style={[styles.contentOuter, layout.isLargeScreen && styles.contentOuterDesktop]}>
-        <View style={[styles.contentInner, maxWidth && { maxWidth, width: '100%', alignSelf: 'center' }]}>
-          <Text style={styles.sectionTitle}>YOUR VAULTS</Text>
-
-          {loading ? <View style={styles.center}><ActivityIndicator color={Colors.primary} /></View>
-            : pms.length === 0 ? (
-              <View style={styles.center}>
-                <Ionicons name="wallet-outline" size={56} color={Colors.outlineVariant} />
-                <Text style={styles.emptyText}>No payment methods yet</Text>
-                <TouchableOpacity style={styles.emptyBtn} onPress={openAdd}>
-                  <Text style={styles.emptyBtnText}>+ Add Method</Text>
-                </TouchableOpacity>
-              </View>
-            ) : (
-              <FlatList
-                data={pms}
-                keyExtractor={p => String(p.id)}
-                renderItem={renderItem}
-                contentContainerStyle={styles.list}
-                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
-              />
-            )
-          }
+        <View style={[styles.contentInner, maxWidth && { maxWidth }]}>
+          {loading && !refreshing ? (
+            <View style={styles.center}><ActivityIndicator color={Colors.primary} /></View>
+          ) : pms.length === 0 ? (
+            <View style={styles.center}>
+              <Ionicons name="card-outline" size={64} color={Colors.outlineVariant} />
+              <Text style={styles.emptyText}>No payment methods yet</Text>
+              <TouchableOpacity style={styles.emptyBtn} onPress={openAdd}>
+                <Text style={styles.emptyBtnText}>+ Add Method</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <FlatList
+              data={pms}
+              renderItem={renderItem}
+              keyExtractor={item => item.id.toString()}
+              contentContainerStyle={styles.list}
+              refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
+            />
+          )}
         </View>
       </View>
 
-      <AddEditModal />
+      <Modal visible={modalVisible} transparent animationType="fade">
+        <View style={styles.modalBg}>
+          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.modalContentWrap}>
+            <View style={[styles.modalCard, layout.isLargeScreen && styles.modalCardDesktop]}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>{editingId ? 'Edit Method' : 'Add Payment Method'}</Text>
+                <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
+                  {editingId && (
+                    <TouchableOpacity onPress={del}><Ionicons name="trash-outline" size={20} color={Colors.error} /></TouchableOpacity>
+                  )}
+                  <TouchableOpacity onPress={() => setModalVisible(false)}>
+                    <Ionicons name="close" size={22} color={Colors.onSurfaceVariant} />
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              <TextInput
+                style={styles.input} value={name} onChangeText={setName}
+                placeholder="Account Name (e.g. HDFC Bank)" placeholderTextColor={Colors.outline}
+              />
+
+              <View style={styles.typeGrid}>
+                {PM_TYPES.map(t => (
+                  <TouchableOpacity key={t.id} style={[styles.typeBtn, type === t.id && styles.typeBtnAct]} onPress={() => setType(t.id)}>
+                    <Text style={[styles.typeText, type === t.id && styles.typeTextAct]}>{t.label}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <TextInput
+                style={styles.input} value={String(balance)} onChangeText={setBalance}
+                placeholder="Current Balance (Optional)" placeholderTextColor={Colors.outline} keyboardType="numeric"
+              />
+
+              <TouchableOpacity style={styles.chkRow} onPress={() => setIsDef(!isDef)} activeOpacity={1}>
+                <Ionicons name={isDef ? 'checkbox' : 'square-outline'} size={24} color={isDef ? Colors.primaryContainer : Colors.outlineVariant} />
+                <Text style={styles.chkText}>Set as default payment method</Text>
+              </TouchableOpacity>
+
+              <View style={styles.modalActions}>
+                <TouchableOpacity style={styles.btnCancel} onPress={() => setModalVisible(false)}>
+                  <Text style={styles.btnCancelText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.btnSave} onPress={save} disabled={saving}>
+                  {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.btnSaveText}>Save Method</Text>}
+                </TouchableOpacity>
+              </View>
+            </View>
+          </KeyboardAvoidingView>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }

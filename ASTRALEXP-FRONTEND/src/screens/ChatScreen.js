@@ -226,13 +226,30 @@ export default function ChatScreen({ navigation }) {
       );
       if (match) pmId = match.id;
     }
+
+    let processedSplits = [];
+    const splitsList = p.splits || [];
+    if (splitsList.length > 0) {
+      const totalAmount = parseFloat(p.amount) || 0;
+      const calculateEqual = splitsList.some(s => s.amount == null || s.amount === 0);
+      
+      // Calculate equal valid splits only internally known (where friend_id is valid)
+      const validSplits = splitsList.filter(s => (s.friend_id || s.debtor));
+      const equalShare = calculateEqual ? Number((totalAmount / (validSplits.length + 1)).toFixed(2)) : 0;
+      
+      processedSplits = validSplits.map(s => ({
+        debtor: s.friend_id || s.debtor,
+        amount: calculateEqual ? equalShare : (parseFloat(s.amount) || 0)
+      }));
+    }
+
     try {
       const payload = {
         amount: p.amount, category: p.category || 'other',
         note: p.note || message,
         expense_time: p.expense_time || new Date().toISOString(),
         payment_method: pmId, raw_input: message,
-        splits: p.splits || [],
+        splits: processedSplits,
       };
       await expensesAPI.create(payload);
       pushBot(`✅ **Saved!** ${currSym}${p.amount} for **${capitalize(p.category)}**`);
@@ -240,8 +257,11 @@ export default function ChatScreen({ navigation }) {
         { label: '📋 View Expenses', onPress: () => navigation.navigate('ExpensesTab') },
         { label: '➕ Add Another', onPress: () => {} },
       ]);
-    } catch {
-      pushBot('❌ Failed to save. Try again.');
+    } catch (err) {
+      const errDetails = err?.response?.data;
+      console.error('Save error:', errDetails || err);
+      const errStr = typeof errDetails === 'object' ? JSON.stringify(errDetails) : '';
+      pushBot(`❌ Failed to save. Try again. ${errStr}`);
     }
     scrollToBottom();
   };

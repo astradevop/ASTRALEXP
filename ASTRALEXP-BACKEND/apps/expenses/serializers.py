@@ -79,6 +79,7 @@ class ExpenseListSerializer(serializers.ModelSerializer):
         source="payment_method.name", read_only=True, default=None
     )
     is_shared = serializers.SerializerMethodField()
+    splits = ExpenseSplitSerializer(many=True, read_only=True)
 
     class Meta:
         model = Expense
@@ -92,6 +93,7 @@ class ExpenseListSerializer(serializers.ModelSerializer):
             "payment_method",
             "payment_method_name",
             "is_shared",
+            "splits",
         )
 
     def get_is_shared(self, obj):

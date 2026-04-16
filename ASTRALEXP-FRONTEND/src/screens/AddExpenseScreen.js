@@ -21,8 +21,10 @@ export default function AddExpenseScreen({ route, navigation }) {
   const [pmId, setPmId]         = useState(expense?.payment_method || null);
   const [payMethods, setPms]    = useState([]);
   const [friends, setFriends]   = useState([]);
-  const [splits, setSplits]     = useState([]); // { debtor: id, amount: str }
-  const [isSplitting, setIsSplitting] = useState(false);
+  const [splits, setSplits]     = useState(
+    expense?.splits ? expense.splits.map(s => ({ debtor: s.debtor, amount: String(s.amount) })) : []
+  ); // { debtor: id, amount: str }
+  const [isSplitting, setIsSplitting] = useState(expense?.splits && expense.splits.length > 0);
   const [loading, setLoading]   = useState(false);
 
   useEffect(() => { loadPms(); loadFriends(); }, []);
